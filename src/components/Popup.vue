@@ -52,13 +52,14 @@
 import db from "../firebase";
 
 export default {
+	props: ["project"],
 	data() {
 		return {
 			title: "",
 			content: "",
 			due: null,
 			rules: [
-				v => !!v || "Required",
+				v => !!v || "This field is required",
 				v => (v && v.length >= 6) || "Minimum length is 6 characters."
 			],
 			loading: false,

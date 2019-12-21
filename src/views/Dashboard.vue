@@ -1,7 +1,7 @@
 <template>
 	<div class="dashboard">
 		<v-snackbar v-model="snackbar" :timeout="4000" top color="success">
-			<span>You added a new Project</span>
+			<span>{{ message }}</span>
 			<v-btn text color="white" @click="snackbar = false">Close</v-btn>
 		</v-snackbar>
 		<h1 class="title grey--text">Dashboard</h1>
@@ -18,9 +18,9 @@
 								@click="sortBy('title')"
 							>
 								<v-icon left small>mdi-folder</v-icon>
-								<span class="caption text-capitalize"
-									>By Project Name</span
-								>
+								<span class="caption text-capitalize">
+									By Project Name
+								</span>
 							</v-btn>
 						</template>
 						<span>Sort by project name</span>
@@ -35,46 +35,103 @@
 								@click="sortBy('person')"
 							>
 								<v-icon left small>mdi-account</v-icon>
-								<span class="caption text-capitalize"
-									>By User</span
-								>
+								<span class="caption text-capitalize">
+									By User
+								</span>
 							</v-btn>
 						</template>
 						<span>Sort by user</span>
 					</v-tooltip>
 				</v-col>
 				<v-col class="col-auto ml-auto">
-					<Popup @projectAdded="snackbar = true" />
+					<Popup
+						@projectAdded="
+							snackbar = true;
+							message = 'You successfully added the new project';
+						"
+					/>
 				</v-col>
 			</v-row>
 
-			<v-card flat v-for="project in projects" :key="project.id">
-				<v-row :class="`pa-3 project ${project.status}`">
-					<v-col xs12 md6>
-						<div class="caption grey--text">Project Title</div>
+			<v-card class="titleTab pa-3">
+				<v-row no-gutters>
+					<v-col>
+						<div>Project Title</div>
+					</v-col>
+					<v-col>
+						<div>Person</div>
+					</v-col>
+					<v-col>
+						<div>Due Date</div>
+					</v-col>
+					<v-col>
+						<div>Status</div>
+					</v-col>
+					<v-col align="center">
+						<div>Action</div>
+					</v-col>
+				</v-row>
+			</v-card>
+
+			<v-card v-for="project in projects" :key="project.id">
+				<v-row no-gutters :class="`pa-3 project ${project.status}`">
+					<v-col>
 						<div>{{ project.title }}</div>
 					</v-col>
-					<v-col sm4 md2>
-						<div class="caption grey--text">Person</div>
+					<v-col>
 						<div>{{ project.person }}</div>
 					</v-col>
-					<v-col sm4 md2>
-						<div class="caption grey--text">Due by</div>
+					<v-col>
 						<div>{{ project.due }}</div>
 					</v-col>
-					<v-col sm4 md2>
+					<v-col>
 						<v-chip
 							small
-							active
-							:class="
-								`${project.status} white--text caption my-2`
-							"
-							>{{ project.status }}</v-chip
+							:color="project.color"
+							class="white--text my-2"
 						>
+							{{ project.status }}
+						</v-chip>
+					</v-col>
+					<v-col align="center">
+						<v-btn text>
+							<v-icon>mdi-pencil-outline</v-icon>
+						</v-btn>
+
+						<v-btn
+							text
+							@click="
+								deleteDialog = true;
+								projectId = project.id;
+							"
+						>
+							<v-icon>mdi-delete-forever-outline</v-icon>
+						</v-btn>
 					</v-col>
 				</v-row>
 				<v-divider></v-divider>
 			</v-card>
+			<v-dialog v-model="deleteDialog" max-width="600px">
+				<v-card>
+					<v-card-title class="headline">
+						Are you sure to delete this project?
+					</v-card-title>
+					<v-card-actions>
+						<v-spacer></v-spacer>
+
+						<v-btn text @click="deleteDialog = false">
+							Cancel
+						</v-btn>
+						<v-btn
+							:loading="loading"
+							text
+							@click.prevent="deleteProject(projectId)"
+						>
+							Delete
+						</v-btn>
+					</v-card-actions>
+				</v-card>
+			</v-dialog>
 		</v-container>
 	</div>
 </template>
@@ -89,12 +146,28 @@ export default {
 	data() {
 		return {
 			projects: [],
-			snackbar: false
+			snackbar: false,
+			deleteDialog: false,
+			projectId: null,
+			message: "",
+			loading: false
 		};
 	},
 	methods: {
 		sortBy(prop) {
 			this.projects.sort((a, b) => (a[prop] < b[prop] ? -1 : 1));
+		},
+		deleteProject(id) {
+			this.loading = true;
+			db.collection("projects")
+				.doc(id)
+				.delete()
+				.then(() => {
+					this.message = "You successfully deleted the project.";
+					this.loading = false;
+					this.deleteDialog = false;
+				})
+				.catch(err => console.log(err));
 		}
 	},
 	created() {
@@ -104,10 +177,26 @@ export default {
 
 			changes.forEach(change => {
 				if (change.type === "added") {
+					let color = null;
+					change.doc.data().status == "complete"
+						? (color = "#3cd1c2")
+						: "";
+					change.doc.data().status == "ongoing"
+						? (color = "orange")
+						: "";
+					change.doc.data().status == "overdue"
+						? (color = "tomato")
+						: "";
 					this.projects.push({
 						...change.doc.data(),
-						id: change.doc.id
+						id: change.doc.id,
+						color
 					});
+				}
+				if (change.type === "removed") {
+					this.projects = this.projects.filter(
+						project => project.id !== change.doc.id
+					);
 				}
 			});
 		});
@@ -116,6 +205,9 @@ export default {
 </script>
 
 <style scoped>
+.titleTab {
+	border-left: 4px solid green;
+}
 .project.complete {
 	border-left: 4px solid #3cd1c2;
 }
