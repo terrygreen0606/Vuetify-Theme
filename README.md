@@ -1,5 +1,5 @@
 # vuetify-app
-
+This integrates with Vuetify and firebase firestore, admin and auth functions.
 ## Project setup
 ```
 npm install
